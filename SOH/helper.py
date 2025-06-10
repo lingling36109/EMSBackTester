@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
 
+# Dataset class for the LSTM classes
 class SequenceDataset(Dataset):
     # Constructor for the time series data for our RNN
     def __init__(self, df, target, features, sequence_length):
@@ -35,14 +36,13 @@ class SequenceDataset(Dataset):
             return x, self.y[idx]
 
 
+# Get the training, validation, and test dataframes (80, 10, 10 split) from original
 def get_dataset(filePth):
-    # Reading in data file
     modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
     datasetPath = os.path.join(modpath, filePth)
     df = pd.read_csv(datasetPath)
     df = df.drop(['Counter', 'Time'], axis=1)
 
-    # training/testing dataset split
     train_size = int(0.8 * len(df))
     validation_size = int(0.1 * len(df))
 
@@ -53,6 +53,7 @@ def get_dataset(filePth):
     return df_train, df_validation, df_test
 
 
+# Change the dataframes into data loaders
 def get_loaders(df, batch_size=32, sequence_length=64):
     dataset_loader = SequenceDataset(
         df,
@@ -64,6 +65,7 @@ def get_loaders(df, batch_size=32, sequence_length=64):
     return DataLoader(dataset_loader, batch_size=batch_size, shuffle=True)
 
 
+# Prints correlation heat map for the given dataset
 def print_heat_map(dataset):
     dataset = dataset.drop(['Counter', 'Time'], axis=1)
     plt.figure(figsize=(30, 30))
@@ -73,6 +75,7 @@ def print_heat_map(dataset):
     plt.show()
 
 
+# Just some function tests
 if __name__ == '__main__':
     df_train, df_validation, df_test = get_dataset("battery_log_processed.csv")
     print_heat_map(df_train)
