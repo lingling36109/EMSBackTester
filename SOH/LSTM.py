@@ -1,10 +1,9 @@
-from tkinter import Variable
-
 import helper
 import torch
 from torch import nn
 
 
+# The regular LSTM class
 class LSTM(nn.Module):
     # Define LSTM layer with linear layer at the very end
     def __init__(self, num_features, hidden_units=16, num_layers=1, dropout=0.1):
@@ -23,12 +22,7 @@ class LSTM(nn.Module):
         )
 
         self.linear = nn.Linear(in_features=hidden_units, out_features=1)
-        self.sigmoid = nn.Sigmoid()
-
-    # Defines hidden states for prediction phase
-    def init_hidden(self, batch_size):
-        self.hidden = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
-        self.control = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
+        self.relu = nn.ReLU()
 
     # Defines forward propagation for each batch
     def forward(self, inputX):
@@ -37,7 +31,7 @@ class LSTM(nn.Module):
         c0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
 
         _, (hn, _) = self.lstm(inputX, (h0, c0))
-        out = self.sigmoid(self.linear(hn[-1]).flatten())
+        out = self.relu(self.linear(hn[-1]).flatten())
         return out
 
     # Autoregression portion of the LSTM
@@ -50,26 +44,6 @@ class LSTM(nn.Module):
         return out
 
 
-# Built test function for the LSTM
-def test_LSTM(data_loader, model: LSTM, loss_function):
-    f = open("loss1B.csv", "w")
-    num_batch = len(data_loader)
-    total_loss = 0
-
-    model.init_hidden(batch_size=num_batch)
-
-    with torch.no_grad():
-        for X, y in data_loader:
-            output = model.predict(X)
-            loss = loss_function(output, y)
-            total_loss += loss.item()
-
-    avg_loss = total_loss / num_batch
-    print(f"LSTM Test loss: {avg_loss}")
-    f.write(avg_loss.__str__() + ",")
-    return avg_loss
-
-
 # Defined the training loop
 if __name__ == "__main__":
     df_train, _, _ = helper.get_dataset("data/battery_log_processed.csv")
@@ -79,7 +53,7 @@ if __name__ == "__main__":
     loss_function = nn.MSELoss()
     optimizer = torch.optim.Adam(LSTM_model.parameters(), lr=0.005)
 
-    f = open("loss1A.csv", "w")
+    f = open("loss1.csv", "w")
     print(" -- Starting classical loss -- ")
     for ix_epoch in range(10):
         print(f"Epoch {ix_epoch}\n---------")

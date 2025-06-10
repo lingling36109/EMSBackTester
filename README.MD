@@ -1,7 +1,12 @@
+Push #5:
+- started CNN + LSTM model (issues with the dimension size of data)
+- reorganized some data between models to base class 
+
 Push #4 Notes:
 - finished autoregression for the LSTM
 - added testing function for LSTM
 - added some documentation for the helper.py class
+- consider to change output layer from ReLu to Sigmoid
 
 Push #3 Notes:
 - finished basic LSTM class with forward propagation and final linear layer

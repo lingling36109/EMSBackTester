@@ -1,11 +1,31 @@
 import os
 import sys
+import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
-import torch
+from torch import nn
+from abc import ABC
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+
+
+# Abstract base class for all autoregressive type models
+class base(ABC, nn.Module):
+    # Basic constructor
+    def __init__(self):
+        super().__init__()
+        self.control = None
+        self.hidden = None
+
+    # An abstract method for prediction
+    def predict(self, inputX):
+        raise NotImplementedError
+
+    # Defines hidden states for prediction phase
+    def init_hidden(self, batch_size):
+        self.hidden = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
+        self.control = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
 
 
 # Dataset class for the LSTM classes
@@ -67,7 +87,6 @@ def get_loaders(df, batch_size=32, sequence_length=64):
 
 # Prints correlation heat map for the given dataset
 def print_heat_map(dataset):
-    dataset = dataset.drop(['Counter', 'Time'], axis=1)
     plt.figure(figsize=(30, 30))
     corr = dataset.corr()
     heatmap = sb.heatmap(corr, vmin=-1, vmax=1, cmap="Blues", annot=True)
@@ -75,9 +94,29 @@ def print_heat_map(dataset):
     plt.show()
 
 
+# Testing function for all base classes
+def tester(data_loader, model: base, loss_function, csvFile):
+    f = open(csvFile, "w")
+    num_batch = len(data_loader)
+    total_loss = 0
+
+    model.init_hidden(batch_size=num_batch)
+
+    with torch.no_grad():
+        for X, y in data_loader:
+            output = model.predict(X)
+            loss = loss_function(output, y)
+            total_loss += loss.item()
+
+    avg_loss = total_loss / num_batch
+    print(f"LSTM Test loss: {avg_loss}")
+    f.write(avg_loss.__str__() + ",")
+    return avg_loss
+
+
 # Just some function tests
 if __name__ == '__main__':
-    df_train, df_validation, df_test = get_dataset("battery_log_processed.csv")
+    df_train, df_validation, df_test = get_dataset("data/battery_log_processed.csv")
     print_heat_map(df_train)
     df_train_loader = get_loaders(df_train)
     df_validation_loader = get_loaders(df_validation)
