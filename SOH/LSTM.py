@@ -50,26 +50,4 @@ if __name__ == "__main__":
     df_train_loader = helper.get_loaders(df_train)
 
     LSTM_model = LSTM(len(list(df_train.columns.difference(["SOH[%]"]))))
-    loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(LSTM_model.parameters(), lr=0.005)
-
-    f = open("loss1.csv", "w")
-    print(" -- Starting classical loss -- ")
-    for ix_epoch in range(10):
-        print(f"Epoch {ix_epoch}\n---------")
-
-        total_loss = 0
-        num_batch = len(df_train_loader)
-        for X, y in df_train_loader:
-            output = LSTM_model.forward(X)
-            loss = loss_function(output, y)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            total_loss += loss.item()
-
-        avg_loss = total_loss / num_batch
-        f.write(avg_loss.__str__() + ",")
-        print(f"LSTM Train loss per batch: {avg_loss}")
+    helper.trainer(df_train_loader, LSTM_model, "loss1.csv")

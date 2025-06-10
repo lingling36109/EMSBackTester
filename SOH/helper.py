@@ -94,9 +94,37 @@ def print_heat_map(dataset):
     plt.show()
 
 
-# Testing function for all base classes
-def tester(data_loader, model: base, loss_function, csvFile):
+# Training function for all base classes
+def trainer(data_loader, model, csvFile):
+    loss_function = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+
     f = open(csvFile, "w")
+    print(" -- Starting classical loss -- ")
+    for ix_epoch in range(10):
+        print(f"Epoch {ix_epoch}\n---------")
+
+        total_loss = 0
+        num_batch = len(data_loader)
+        for X, y in data_loader:
+            output = model.forward(X)
+            loss = loss_function(output, y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        avg_loss = total_loss / num_batch
+        f.write(avg_loss.__str__() + ",")
+        print(f"LSTM Train loss per batch: {avg_loss}")
+
+
+# Testing function for all base classes
+def tester(data_loader, model, csvFile):
+    f = open(csvFile, "w")
+    loss_function = nn.MSELoss()
     num_batch = len(data_loader)
     total_loss = 0
 

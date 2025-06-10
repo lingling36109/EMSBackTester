@@ -1,3 +1,7 @@
+Push #6
+- finished CNN + LSTM model
+- reorganized training loops
+
 Push #5:
 - started CNN + LSTM model (issues with the dimension size of data)
 - reorganized some data between models to base class 
