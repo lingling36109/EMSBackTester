@@ -3,9 +3,8 @@ import torch
 from torch import nn
 
 
-# LSTM CNN combined, CNN used for feature extraction of the
+# LSTM + CNN model, CNN used for feature extraction
 class LSTM_CNN(helper.base):
-    # Constructor for the CNN LSTM
     def __init__(self, num_features, conv_filters, kernel_size, hidden_units=16, num_layers=1, dropout=0.1):
         super().__init__()
         self.hidden = None
@@ -31,7 +30,6 @@ class LSTM_CNN(helper.base):
         self.linear = nn.Linear(in_features=hidden_units, out_features=1)
         self.relu = nn.ReLU()
 
-    # Defines forward propagation for each batch
     def forward(self, inputX):
         batch_size = inputX.shape[0]
         h0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
@@ -45,8 +43,6 @@ class LSTM_CNN(helper.base):
         out = self.relu(self.linear(hn[-1]).flatten())
         return out
 
-    # Autoregression portion of the LSTM
-    # For future reference should maybe have to change for when you put in previous SOH into input
     def predict(self, inputX):
         inputX = inputX.permute(0, 2, 1)
         inputX = self.cnn(inputX)
@@ -58,9 +54,8 @@ class LSTM_CNN(helper.base):
         return out
 
 
-# Class for BiLSTM_CNN
+# BiLSTM + CNN Class
 class BiLSTM_CNN(helper.base):
-    # Constructor for the CNN BiLSTM
     def __init__(self, num_features, conv_filters, kernel_size, hidden_units=16, num_layers=1, dropout=0.1):
         super().__init__()
         self.hidden = None
@@ -87,12 +82,9 @@ class BiLSTM_CNN(helper.base):
         self.linear = nn.Linear(in_features=hidden_units, out_features=1)
         self.relu = nn.ReLU()
 
-    # Defines forward propagation for each batch
     def forward(self, inputX):
         raise NotImplementedError
 
-    # Autoregression portion of the LSTM
-    # For future reference should maybe have to change for when you put in previous SOH into input
     def predict(self, inputX):
         raise NotImplementedError
 

@@ -12,17 +12,14 @@ from torch.utils.data import DataLoader
 
 # Abstract base class for all autoregressive type models
 class base(ABC, nn.Module):
-    # Basic constructor
     def __init__(self):
         super().__init__()
         self.control = None
         self.hidden = None
 
-    # An abstract method for prediction
     def predict(self, inputX):
         raise NotImplementedError
 
-    # Defines hidden states for prediction phase
     def init_hidden(self, batch_size):
         self.hidden = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
         self.control = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
@@ -30,7 +27,6 @@ class base(ABC, nn.Module):
 
 # Dataset class for the LSTM classes
 class SequenceDataset(Dataset):
-    # Constructor for the time series data for our RNN
     def __init__(self, df, target, features, sequence_length):
         self.features = features
         self.target = target
@@ -39,11 +35,9 @@ class SequenceDataset(Dataset):
         self.y = torch.tensor(df[self.target].values).float()
         self.X = torch.tensor(df[self.features].values).float()
 
-    # Returns total length of time series
     def __len__(self):
         return self.X.shape[0]
 
-    # Grabs next item in the dataset
     def __getitem__(self, idx):
         if idx >= self.sequence_length - 1:
             start_idx = idx - (self.sequence_length - 1)
