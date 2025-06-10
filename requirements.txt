@@ -1,1 +1,8 @@
 backtrader~=1.9.78.123
+pandas~=2.2.3
+numpy~=1.26.4
+scipy~=1.14.1
+tqdm~=4.66.5
+torch~=2.7.1
+matplotlib~=3.9.2
+seaborn~=0.13.2
