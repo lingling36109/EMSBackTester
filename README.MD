@@ -1,8 +1,11 @@
-Push #6
+Push #7 Notes:
+- started bidirectional variants 
+
+Push #6 Notes:
 - finished CNN + LSTM model
 - reorganized training loops
 
-Push #5:
+Push #5 Notes:
 - started CNN + LSTM model (issues with the dimension size of data)
 - reorganized some data between models to base class 
 
