@@ -3,9 +3,9 @@ import torch
 from torch import nn
 
 
-# LSTM + CNN model, CNN used for feature extraction
-class LSTM_CNN(helper.base):
-    def __init__(self, num_features, conv_filters, kernel_size, hidden_units=16, num_layers=1, dropout=0.1):
+# LSTM + CNN class, CNN used for feature extraction
+class CNN_LSTM(helper.base):
+    def __init__(self, num_features, conv_filters=64, kernel_size=3, hidden_units=16, num_layers=1):
         super().__init__()
         self.hidden = None
         self.control = None
@@ -24,7 +24,6 @@ class LSTM_CNN(helper.base):
             hidden_size=hidden_units,
             batch_first=True,
             num_layers=num_layers,
-            dropout=dropout,
         )
 
         self.linear = nn.Linear(in_features=hidden_units, out_features=1)
@@ -48,52 +47,7 @@ class LSTM_CNN(helper.base):
         inputX = self.cnn(inputX)
         inputX = inputX.permute(0, 2, 1)
         _, (hn, cn) = self.lstm(inputX, (self.hidden, self.control))
-        out = self.sigmoid(self.linear(hn[-1]).flatten())
+        out = self.relu(self.linear(hn[-1]).flatten())
         self.hidden = hn
         self.control = cn
         return out
-
-
-# BiLSTM + CNN Class
-class BiLSTM_CNN(helper.base):
-    def __init__(self, num_features, conv_filters, kernel_size, hidden_units=16, num_layers=1, dropout=0.1):
-        super().__init__()
-        self.hidden = None
-        self.control = None
-        self.hidden_units = hidden_units
-        self.num_layers = num_layers
-
-        self.cnn = nn.Conv1d(
-            in_channels=num_features,
-            out_channels=conv_filters,
-            kernel_size=kernel_size,
-            padding="same"
-        )
-
-        self.lstm = nn.LSTM(
-            input_size=conv_filters,
-            hidden_size=hidden_units,
-            batch_first=True,
-            num_layers=num_layers,
-            dropout=dropout,
-            bidirectional=True
-        )
-
-        self.linear = nn.Linear(in_features=hidden_units, out_features=1)
-        self.relu = nn.ReLU()
-
-    def forward(self, inputX):
-        raise NotImplementedError
-
-    def predict(self, inputX):
-        raise NotImplementedError
-
-
-# Defined the training loop
-if __name__ == "__main__":
-    torch.manual_seed(1)
-    df_train, _, _ = helper.get_dataset("data/training/battery_log_processed.csv")
-    df_train_loader = helper.get_loaders(df_train)
-
-    LSTM_CNN_model = LSTM_CNN(len(list(df_train.columns.difference(["SOH[%]"]))), conv_filters=64, kernel_size=3)
-    helper.trainer(df_train_loader, LSTM_CNN_model, "data/losses/loss2.csv")
