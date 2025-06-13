@@ -4,6 +4,7 @@ import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
+import numpy as np
 from torch import nn
 from abc import ABC
 from torch.utils.data import Dataset
@@ -89,9 +90,11 @@ def print_heat_map(dataset):
 
 
 # Training function for all base classes
-def trainer(data_loader, model, csvFile, lr=0.001):
+def trainer(train_data, valid_data, model, csvFile, batch_size, lr=0.001):
     loss_function = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    best_valid_loss = np.inf
+    patience = 0
 
     f = open(csvFile, "w")
     print(" -- Starting classical loss -- ")
@@ -99,8 +102,8 @@ def trainer(data_loader, model, csvFile, lr=0.001):
         print(f"Epoch {ix_epoch}\n---------")
 
         total_loss = 0
-        num_batch = len(data_loader)
-        for X, y in data_loader:
+        num_batch = len(train_data)
+        for X, y in train_data:
             output = model.forward(X)
             loss = loss_function(output, y)
 
@@ -110,19 +113,30 @@ def trainer(data_loader, model, csvFile, lr=0.001):
 
             total_loss += loss.item()
 
+        valid_loss = tester(valid_data, model, batch_size)
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+            patience = 0
+            torch.save(model.state_dict(), "best_model.pth")
+            print("Model improved; saved to best_model.pth")
+        else:
+            patience += 1
+        if patience >= 5:
+            break
+
         avg_loss = total_loss / num_batch
         f.write(avg_loss.__str__() + ",")
         print(f"Train loss per batch: {avg_loss}")
 
 
 # Testing function for all base classes
-def tester(data_loader, model, csvFile):
-    f = open(csvFile, "w")
+def tester(data_loader, model, batch_size, writeOut=False):
+    f = open("data/losses/valid.csv", "w")
     loss_function = nn.MSELoss()
     num_batch = len(data_loader)
     total_loss = 0
 
-    model.init_hidden(batch_size=num_batch)
+    model.init_hidden(batch_size=batch_size)
 
     with torch.no_grad():
         for X, y in data_loader:
@@ -132,7 +146,10 @@ def tester(data_loader, model, csvFile):
 
     avg_loss = total_loss / num_batch
     print(f"Test loss: {avg_loss}")
-    f.write(avg_loss.__str__() + ",")
+
+    if writeOut:
+        f.write(avg_loss.__str__() + ",")
+
     return avg_loss
 
 

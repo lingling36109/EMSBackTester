@@ -1,29 +1,11 @@
-import argparse
 import csv
+import os
+import sys
+
 import pandas as pd
 import numpy as np
 from scipy import stats
 from tqdm import tqdm
-
-
-def parse_args():
-    """
-    Parse command-line arguments for input and output file paths.
-    """
-    parser = argparse.ArgumentParser(
-        description='CSV-based battery data processor: compute rack-wise metrics, normalize voltages, smooth signals, and save averaged results.'
-    )
-    parser.add_argument(
-        '-i', '--input',
-        required=True,
-        help='Path to the input raw CSV file'
-    )
-    parser.add_argument(
-        '-o', '--output',
-        required=True,
-        help='Path to the output averaged CSV file'
-    )
-    return parser.parse_args()
 
 
 def read_csv_to_dict(path):
@@ -203,7 +185,7 @@ def normalize_and_smooth(df_avg):
     keys_to_smooth = keys_voltages + keys_currents
 
     # For each key in smoothing targets:
-    for key in tqdm(keys_to_smooth, desc='Smoothing keys'):  
+    for key in tqdm(keys_to_smooth, desc='Smoothing keys'):
         series = np.array(df_avg[key], dtype=float)
 
         # Compute Z-scores and mark outliers as NaN
@@ -243,12 +225,14 @@ def save_to_csv(df_avg, output_path):
     print(f"Averaged data saved to {output_path}")
 
 
-def main():
-    args = parse_args()
+def datacleaner(input, output):
+    modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
+    input = os.path.join(modpath, input)
+    output = os.path.join(modpath, output)
 
     # Step 1: Read CSV file
-    headers, values = read_csv_to_dict(args.input)
-    print(f"Read {len(values)} rows (excluding header) from {args.input}")
+    headers, values = read_csv_to_dict(input)
+    print(f"Read {len(values)} rows (excluding header) from {output}")
 
     # Step 2: Build dictionary mapping each header to list of column values
     df = build_column_dict(headers, values)
@@ -267,8 +251,11 @@ def main():
     print("Normalization and smoothing complete.")
 
     # Step 6: Save averaged result to output path
-    save_to_csv(df_avg, args.output)
+    save_to_csv(df_avg, output)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    # datacleaner("data/battery_log_raw.csv",
+    #             "data/battery_log_processed.csv")
+    datacleaner("data/training/GR21US0001_BSC01_20230101/JXB_BSC_Bank1_2023011.csv",
+                "data/training/GR21US0001_BSC01_20230101/processed_JXB_BSC_Bank1_20230101.csv")

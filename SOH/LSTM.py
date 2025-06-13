@@ -2,9 +2,12 @@ import helper
 import torch
 from torch import nn
 
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+print(f"Using device: {device}")
+
 
 # LSTM class
-class LSTM(nn.Module):
+class LSTM(helper.base):
     def __init__(self, num_features, hidden_units=16, num_layers=1):
         super().__init__()
         self.hidden = None
@@ -32,6 +35,11 @@ class LSTM(nn.Module):
         return out
 
     def predict(self, inputX):
+        if inputX.shape[0] != self.hidden.shape[1]:
+            idx = self.hidden.shape[1] - inputX.shape[0]
+            self.hidden = self.hidden[:, idx:]
+            self.control = self.control[:, idx:]
+
         _, (hn, cn) = self.lstm(inputX, (self.hidden, self.control))
         out = self.relu(self.linear(hn[-1]).flatten())
         self.hidden = hn
@@ -46,4 +54,3 @@ if __name__ == "__main__":
     df_train_loader = helper.get_loaders(df_train)
 
     LSTM_model = LSTM(len(list(df_train.columns.difference(["SOH[%]"]))))
-    helper.trainer(df_train_loader, LSTM_model, "data/losses/loss1.csv")
