@@ -87,7 +87,8 @@ def print_heat_map(dataset):
     heatmap = sb.heatmap(corr, vmin=-1, vmax=1, cmap="Blues", annot=True)
     heatmap.set_title('Correlation Heatmap', fontdict={'fontsize': 12}, pad=12)
     plt.show()
-
+    figure = heatmap.get_figure()
+    figure.savefig('/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/saved/heatmap.png', dpi="figure")
 
 # Training function for all base classes
 def trainer(train_data, valid_data, model, csvFile, batch_size, lr=0.001):
@@ -153,11 +154,70 @@ def tester(data_loader, model, batch_size, writeOut=False):
     return avg_loss
 
 
-# Just some function tests
+def combine_csvs_from_directory(directory_path):
+    combined_df = pd.DataFrame()
+
+    for filename in os.listdir(directory_path):
+        if filename.endswith(".csv"):
+            file_path = os.path.join(directory_path, filename)
+            print(f"Reading {file_path}...")
+            df = pd.read_csv(file_path)
+            combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    return combined_df
+
+
+def save_histograms(df, output_dir="histograms"):
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Loop through each column
+    for column in df.columns:
+        if pd.api.types.is_numeric_dtype(df[column]):
+            plt.figure()
+            df[column].dropna().hist(bins=30, edgecolor='black')
+            plt.title(f"Histogram of {column}")
+            plt.xlabel(column)
+            plt.ylabel("Frequency")
+            plt.grid(True)
+            plt.tight_layout()
+
+            # Save the figure
+            filename = f"{column}_histogram.png"
+            plt.savefig(os.path.join(output_dir, filename))
+            plt.close()
+
+
 if __name__ == '__main__':
-    df_train, df_validation, df_test = get_dataset("data/battery_log_processed.csv")
-    print_heat_map(df_train)
-    df_train_loader = get_loaders(df_train)
-    df_validation_loader = get_loaders(df_validation)
-    df_test_loader = get_loaders(df_test)
+    # directory = "/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/training/processed/"
+    # big_dataframe = combine_csvs_from_directory(directory)
+    # big_dataframe = big_dataframe.drop(['Counter', 'Time'], axis=1)
+    # save_histograms(big_dataframe)
+
+    # df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    # df = df.drop(['Counter', 'Time'], axis=1)
+    # df['New Avg. Cell V[V]'] = df['Avg. Cell V[V]'].shift(-1)
+    # df['New Rack Current[A]'] = df['Rack Current[A]'].shift(-1)
+    # df['delta Avg. Cell V[V]'] = df['New Avg. Cell V[V]'] - df['Avg. Cell V[V]']
+    # df['delta Rack Current[A]'] = df['New Rack Current[A]'] - df['Rack Current[A]']
+    # df['Resistance [Ohm]'] = df['delta Avg. Cell V[V]'] / df['delta Rack Current[A]']
+    # df = df[~np.isnan(df['Resistance [Ohm]'])]
+    # df = df[['Resistance [Ohm]', 'Avg. Cell V[V]', 'Rack Current[A]',
+    #          'New Avg. Cell V[V]', 'New Rack Current[A]',
+    #          'delta Avg. Cell V[V]', 'delta Rack Current[A]', 'SOC[%]']]
+    # df.to_csv('res2.csv', index=False)
+
+    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/res2.csv")
+    df = df[df['Resistance [Ohm]'].abs() < 0.001]
+    y = df['Resistance [Ohm]']
+    plt.plot(y)
+    plt.savefig('Resistance.png', dpi=500)
+
+    # plt.figure(figsize=(10, 6))
+    # plt.scatter(df['SOC[%]'], df['Resistance [Ohm]'], alpha=0.5, c='blue')
+    # plt.xlabel('SOC')
+    # plt.ylabel('Resistance (Ohms)')
+    # plt.title('SOC vs Resistance')
+    # plt.grid(True)
+    # plt.savefig('soc_vs_resistance1.png', dpi=300)
+    # plt.close()
     print("Done")

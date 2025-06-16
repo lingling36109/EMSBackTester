@@ -1,7 +1,7 @@
 import csv
 import os
 import sys
-
+import re
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -58,7 +58,7 @@ def partition_by_rack(df):
     # Detect how many racks exist based on header prefixes
     rack_count = 0
     for i in range(0, 100):
-        key_head = f"[Rack#{i+1}]"
+        key_head = f"[Rack#{i + 1}]"
         keys = [k for k in df.keys() if k.startswith(key_head)]
         if not keys:
             rack_count = i
@@ -225,37 +225,48 @@ def save_to_csv(df_avg, output_path):
     print(f"Averaged data saved to {output_path}")
 
 
-def datacleaner(input, output):
+def datacleaner(in_directory_name, out_directory_name):
     modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-    input = os.path.join(modpath, input)
-    output = os.path.join(modpath, output)
+    directory = os.fsencode(in_directory_name)
 
-    # Step 1: Read CSV file
-    headers, values = read_csv_to_dict(input)
-    print(f"Read {len(values)} rows (excluding header) from {output}")
+    for file in os.listdir(directory):
+        filename = os.fsdecode(file)
+        if filename.endswith(".csv") and re.search(".+Rack.+", filename):
+            input = filename
+            output = "processed_" + filename
+            input = os.path.join(modpath, in_directory_name + "/" + input)
+            output = os.path.join(modpath, out_directory_name + output)
 
-    # Step 2: Build dictionary mapping each header to list of column values
-    df = build_column_dict(headers, values)
-    print(f"Loaded columns: {list(df.keys())[:5]} ... (+{len(df) - 5} more)")
+            # Step 1: Read CSV file
+            headers, values = read_csv_to_dict(input)
+            print(f"Read {len(values)} rows (excluding header) from {output}")
 
-    # Step 3: Partition columns by rack; detect how many racks exist
-    df_new, rack_count = partition_by_rack(df)
-    print(f"Detected {rack_count} racks in dataset.")
+            # Step 2: Build dictionary mapping each header to list of column values
+            df = build_column_dict(headers, values)
+            print(f"Loaded columns: {list(df.keys())[:5]} ... (+{len(df) - 5} more)")
 
-    # Step 4: Compute averages across racks
-    df_avg = compute_averages(df_new, rack_count, len(values))
-    print(f"Computed averaged metrics for {len(df_avg) - 2} keys (excluding 'Counter' & 'Time').")
+            # Step 3: Partition columns by rack; detect how many racks exist
+            df_new, rack_count = partition_by_rack(df)
+            print(f"Detected {rack_count} racks in dataset.")
 
-    # Step 5: Normalize voltages and smooth signals
-    df_avg = normalize_and_smooth(df_avg)
-    print("Normalization and smoothing complete.")
+            # Step 4: Compute averages across racks
+            df_avg = compute_averages(df_new, rack_count, len(values))
+            print(f"Computed averaged metrics for {len(df_avg) - 2} keys (excluding 'Counter' & 'Time').")
 
-    # Step 6: Save averaged result to output path
-    save_to_csv(df_avg, output)
+            # Step 5: Normalize voltages and smooth signals
+            df_avg = normalize_and_smooth(df_avg)
+            print("Normalization and smoothing complete.")
+
+            # Step 6: Save averaged result to output path
+            save_to_csv(df_avg, output)
 
 
 if __name__ == "__main__":
-    # datacleaner("data/battery_log_raw.csv",
-    #             "data/battery_log_processed.csv")
-    datacleaner("data/training/GR21US0001_BSC01_20230101/JXB_BSC_Bank1_2023011.csv",
-                "data/training/GR21US0001_BSC01_20230101/processed_JXB_BSC_Bank1_20230101.csv")
+    for dir_path, dir_names, _ in os.walk("data/training/"):
+        for dir_name in dir_names:
+            print(f"Current directory: {dir_name}")
+            if dir_name == "processed":
+                continue
+            datacleaner(dir_path + dir_name,
+                        "data/training/processed/")
+        break
