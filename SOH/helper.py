@@ -188,82 +188,11 @@ def save_histograms(df, output_dir="histograms"):
 
 
 if __name__ == '__main__':
-    # directory = "/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/training/processed/"
-    # big_dataframe = combine_csvs_from_directory(directory)
-    # big_dataframe = big_dataframe.drop(['Counter', 'Time'], axis=1)
-    # save_histograms(big_dataframe)
-
-    # df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
-    # df = df.drop(['Counter', 'Time'], axis=1)
-    # df['New Avg. Cell V[V]'] = df['Avg. Cell V[V]'].shift(-1)
-    # df['New Rack Current[A]'] = df['Rack Current[A]'].shift(-1)
-    # df['delta Avg. Cell V[V]'] = df['New Avg. Cell V[V]'] - df['Avg. Cell V[V]']
-    # df['delta Rack Current[A]'] = df['New Rack Current[A]'] - df['Rack Current[A]']
-    # df['Resistance [Ohm]'] = df['delta Avg. Cell V[V]'] / df['delta Rack Current[A]']
-    # df = df[~np.isnan(df['Resistance [Ohm]'])]
-    # df = df[abs(df['delta Avg. Cell V[V]']) > 0.01]
-    # df = df[abs(df['Rack Current[A]']) > 0.1]
-    # df = df[df['delta Rack Current[A]'] != 0]
-    # df = df[['Resistance [Ohm]', 'Avg. Cell V[V]', 'Rack Current[A]',
-    #          'New Avg. Cell V[V]', 'New Rack Current[A]',
-    #          'delta Avg. Cell V[V]', 'delta Rack Current[A]', 'SOC[%]']]
-    # df.to_csv('res3.csv', index=False)
-
-    # import numpy as np
-    # import pandas as pd
-    # import matplotlib.pyplot as plt
-
-    # Load data
     df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/ukf_state_predictions.csv")
     df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
 
-    # # Filter out rows where denominator is zero
-    # df = df[df['0'] != 0.0]
-    #
-    # # Compute resistance = (3.8 - Voltage) / Current
-    # y1 = ((3.6 - df['1']) / df['0']).values  # Ensure numpy array
-    #
-    # # Initialize Kalman Filter
-    # x = np.array([y1[0]])  # initial resistance estimate (scalar)
-    # A = np.eye(1)  # State transition
-    # H = np.eye(1)  # Observation model
-    # Q = np.array([[1]])  # Process noise covariance
-    # R = np.array([[1]])  # Measurement noise covariance
-    # P = np.eye(1)  # Initial estimation covariance
-    #
-    # # Run Kalman Filter
-    # filtered_states = []
-    #
-    # for z in y1:
-    #     # Prediction
-    #     x_pred = A @ x
-    #     P_pred = A @ P @ A.T + Q
-    #
-    #     # Kalman Gain
-    #     S = H @ P_pred @ H.T + R
-    #     K = P_pred @ H.T @ np.linalg.inv(S)
-    #
-    #     # Update
-    #     y = z - H @ x_pred
-    #     x = x_pred + K @ y
-    #     P = (np.eye(1) - K @ H) @ P_pred
-    #
-    #     filtered_states.append(x[0])  # Store scalar
+    from sklearn.metrics import root_mean_squared_error
+    rms = root_mean_squared_error(df2['SOC[%]'], df['SoC'])
+    print(rms)
 
-    # Plot results
-    plt.figure(figsize=(10, 5))
-    plt.plot(df['SoC'], label="SOC")
-    plt.plot(df2['SOC[%]'], label="SOC Real")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('Fuuuuuuck4.png', dpi=450)
-
-    # plt.figure(figsize=(10, 6))
-    # plt.scatter(df['SOC[%]'], df['Resistance [Ohm]'], alpha=0.5, c='blue')
-    # plt.xlabel('SOC')
-    # plt.ylabel('Resistance (Ohms)')
-    # plt.title('SOC vs Resistance')
-    # plt.grid(True)
-    # plt.savefig('soc_vs_resistance1.png', dpi=300)
-    # plt.close()
     print("Done")
