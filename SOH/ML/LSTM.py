@@ -1,5 +1,6 @@
 import helper
 import torch
+import pandas as pd
 from torch import nn
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -26,15 +27,6 @@ class LSTM(helper.base):
         self.relu = nn.ReLU()
 
     def forward(self, inputX):
-        batch_size = inputX.shape[0]
-        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
-        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
-
-        _, (hn, _) = self.lstm(inputX, (h0, c0))
-        out = self.relu(self.linear(hn[-1]).flatten())
-        return out
-
-    def predict(self, inputX):
         if inputX.shape[0] != self.hidden.shape[1]:
             idx = self.hidden.shape[1] - inputX.shape[0]
             self.hidden = self.hidden[:, idx:]
@@ -42,15 +34,24 @@ class LSTM(helper.base):
 
         _, (hn, cn) = self.lstm(inputX, (self.hidden, self.control))
         out = self.relu(self.linear(hn[-1]).flatten())
-        self.hidden = hn
-        self.control = cn
+        self.hidden = hn.detach()
+        self.control = cn.detach()
         return out
-
 
 # Defined the training loop
 if __name__ == "__main__":
     torch.manual_seed(1)
-    df_train, _, _ = helper.get_dataset("data/training/battery_log_processed.csv")
-    df_train_loader = helper.get_loaders(df_train)
+    df_train, df_valid, df_test = helper.get_dataset("data/training/battery_log_processed.csv")
+    df_train_loader = helper.get_loaders(df_train, shuffle=False)
+    df_valid_loader = helper.get_loaders(df_valid, shuffle=False)
+    df_test_loader = helper.get_loaders(df_test, shuffle=False)
 
-    LSTM_model = LSTM(len(list(df_train.columns.difference(["SOH[%]"]))))
+    LSTM_model = LSTM(len(list(df_train[["Avg. Cell V[V]", "Charge State", "Counter", "Avg. Module T[oC]", "Rack Current[A]"]])), hidden_units=32, num_layers=2)
+    helper.trainer(df_train_loader, LSTM_model, batch_size=128)
+
+    # df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    # df_loader = helper.get_loaders(df, shuffle=False)
+    #
+    # LSTM_model = LSTM(len(list(df[["Avg. Cell V[V]", "Charge State", "Counter", "Avg. Module T[oC]", "Rack Current[A]"]])))
+    # LSTM_model.load_state_dict(torch.load("best_model.pth"))
+    # helper.tester(df_loader, LSTM_model, 32)

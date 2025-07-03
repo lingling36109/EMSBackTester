@@ -1,12 +1,14 @@
 import os
 import sys
 import torch
+import SOH.UKF
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
 import numpy as np
 from torch import nn
 from abc import ABC
+from mealpy import FloatVar, ES
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
@@ -22,8 +24,8 @@ class base(ABC, nn.Module):
         raise NotImplementedError
 
     def init_hidden(self, batch_size):
-        self.hidden = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
-        self.control = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
+        self.hidden = torch.zeros(self.num_layers, batch_size, self.hidden_units)
+        self.control = torch.zeros(self.num_layers, batch_size, self.hidden_units)
 
 
 # Dataset class for the LSTM classes
@@ -53,10 +55,8 @@ class SequenceDataset(Dataset):
 
 # Get the training, validation, and test dataframes (80, 10, 10 split) from original
 def get_dataset(filePth):
-    modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-    datasetPath = os.path.join(modpath, filePth)
-    df = pd.read_csv(datasetPath)
-    df = df.drop(['Counter', 'Time'], axis=1)
+    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    df = df.drop(['Time'], axis=1)
 
     train_size = int(0.8 * len(df))
     validation_size = int(0.1 * len(df))
@@ -69,15 +69,15 @@ def get_dataset(filePth):
 
 
 # Change the dataframes into data loaders
-def get_loaders(df, batch_size=32, sequence_length=64):
+def get_loaders(df, batch_size=128, sequence_length=1024, shuffle=True):
     dataset_loader = SequenceDataset(
         df,
-        target="SOH[%]",
-        features=list(df.columns.difference(["SOH[%]"])),
+        target="SOC[%]",
+        features=list(df[["Avg. Cell V[V]", "Charge State", "Counter", "Avg. Module T[oC]", "Rack Current[A]"]]),
         sequence_length=sequence_length
     )
 
-    return DataLoader(dataset_loader, batch_size=batch_size, shuffle=True)
+    return DataLoader(dataset_loader, batch_size=batch_size, shuffle=shuffle)
 
 
 # Prints correlation heat map for the given dataset
@@ -91,17 +91,14 @@ def print_heat_map(dataset):
     figure.savefig('/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/saved/heatmap.png', dpi="figure")
 
 # Training function for all base classes
-def trainer(train_data, valid_data, model, csvFile, batch_size, lr=0.001):
+def trainer(train_data, model, batch_size, lr=0.001):
     loss_function = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    best_valid_loss = np.inf
-    patience = 0
 
-    f = open(csvFile, "w")
-    print(" -- Starting classical loss -- ")
-    for ix_epoch in range(100):
-        print(f"Epoch {ix_epoch}\n---------")
+    model.init_hidden(batch_size=batch_size)
 
+    for ix_epoch in range(40):
+        print(f"Epoch Number: {ix_epoch}")
         total_loss = 0
         num_batch = len(train_data)
         for X, y in train_data:
@@ -114,44 +111,47 @@ def trainer(train_data, valid_data, model, csvFile, batch_size, lr=0.001):
 
             total_loss += loss.item()
 
-        valid_loss = tester(valid_data, model, batch_size)
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            patience = 0
-            torch.save(model.state_dict(), "best_model.pth")
-            print("Model improved; saved to best_model.pth")
-        else:
-            patience += 1
-        if patience >= 5:
-            break
-
         avg_loss = total_loss / num_batch
-        f.write(avg_loss.__str__() + ",")
         print(f"Train loss per batch: {avg_loss}")
+    torch.save(model.state_dict(), "model.pth")
 
-
-# Testing function for all base classes
-def tester(data_loader, model, batch_size, writeOut=False):
-    f = open("data/losses/valid.csv", "w")
+def tester(data_loader, model, batch_size):
     loss_function = nn.MSELoss()
     num_batch = len(data_loader)
     total_loss = 0
+
+    all_preds = []
+    all_targets = []
 
     model.init_hidden(batch_size=batch_size)
 
     with torch.no_grad():
         for X, y in data_loader:
-            output = model.predict(X)
+            output = model.forward(X)
             loss = loss_function(output, y)
             total_loss += loss.item()
+
+            all_preds.append(output.cpu())
+            all_targets.append(y.cpu())
 
     avg_loss = total_loss / num_batch
     print(f"Test loss: {avg_loss}")
 
-    if writeOut:
-        f.write(avg_loss.__str__() + ",")
+    all_preds = torch.cat(all_preds).squeeze().numpy()
+    all_targets = torch.cat(all_targets).squeeze().numpy()
 
+    plt.figure(figsize=(10, 5))
+    plt.plot(all_targets, label="Actual", color="black", linewidth=2)
+    plt.plot(all_preds, label="Predicted", color="red", linestyle="--")
+    plt.title("Model Predictions vs Actual Values")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Value")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
     return avg_loss
+
 
 
 def combine_csvs_from_directory(directory_path):
@@ -170,7 +170,6 @@ def combine_csvs_from_directory(directory_path):
 def save_histograms(df, output_dir="histograms"):
     os.makedirs(output_dir, exist_ok=True)
 
-    # Loop through each column
     for column in df.columns:
         if pd.api.types.is_numeric_dtype(df[column]):
             plt.figure()
@@ -181,18 +180,40 @@ def save_histograms(df, output_dir="histograms"):
             plt.grid(True)
             plt.tight_layout()
 
-            # Save the figure
             filename = f"{column}_histogram.png"
             plt.savefig(os.path.join(output_dir, filename))
             plt.close()
 
+if __name__ == "__main__":
+    # df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    # plt.plot(20, 30)
+    # plt.plot(df2['Rack Current[A]'], label="Current", color="red")
+    # plt.plot(df2['Fuck'], label="Current smoothed 1", color="blue")
+    # plt.plot(df2['Fuck2'], label="Current smoothed 2", color="green")
+    # plt.legend()
+    # plt.savefig('Fuuuuuuck4.png', dpi=450)
+    # # fig.savefig('Fuuuuuuck5.png', dpi=450)
+    # plt.show()
+    # === Define the problem ===
 
-if __name__ == '__main__':
-    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/ukf_state_predictions.csv")
-    df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    bounds = FloatVar(
+        lb=[1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12],
+        ub=[2, 10, 1, 2, 10, 1, 100, 100, 100, 100, 100, 100, 100, 100]
+    )
 
-    from sklearn.metrics import root_mean_squared_error
-    rms = root_mean_squared_error(df2['SOC[%]'], df['SoC'])
-    print(rms)
+    problem = {
+        "obj_func": SOH.UKF.objective_function,
+        "bounds": bounds,
+        "minmax": "min",
+    }
 
-    print("Done")
+    optimizer = ES.CMA_ES(
+        epoch=2500,
+        pop_size=100,
+    )
+
+    import logging
+    optimizer.logging = logging.getLogger("mealpy")
+
+    optimizer.solve(problem, mode="process", n_workers=8)
+    print("Best (multiprocessed):", optimizer.g_best.solution, optimizer.g_best.target.fitness)
