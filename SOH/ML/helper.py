@@ -11,6 +11,7 @@ from abc import ABC
 from mealpy import FloatVar, ES
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from sklearn.metrics import root_mean_squared_error
 
 
 # Abstract base class for all autoregressive type models
@@ -55,7 +56,7 @@ class SequenceDataset(Dataset):
 
 # Get the training, validation, and test dataframes (80, 10, 10 split) from original
 def get_dataset(filePth):
-    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    df = pd.read_csv("/SOH/data/training/processed/battery_log_processed.csv")
     df = df.drop(['Time'], axis=1)
 
     train_size = int(0.8 * len(df))
@@ -187,13 +188,12 @@ def save_histograms(df, output_dir="histograms"):
 
 if __name__ == "__main__":
     df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/dual_ukf_predictions.csv")
-    df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    df2 = pd.read_csv("/SOH/data/training/processed/battery_log_processed.csv")
+
+    print(root_mean_squared_error(df['SOC'], df2['Fuck3']))
+    # plt.figure(figsize=(20, 10))
     # plt.plot(df['SOC'], label="SOC")
     # plt.plot(df2['Fuck3'], label="SOC Real")
-    # plt.plot(df['V_transient'], label="V transient")
-
-    plt.figure(figsize=(20, 10))
-    plt.plot(df['Res'], label="Resistance")
-    plt.legend()
-    plt.savefig('Fuuuuuuck5.png', dpi=450)
-    plt.show()
+    # plt.legend()
+    # plt.savefig('Fuuuuuuck2.png', dpi=450)
+    # plt.show()

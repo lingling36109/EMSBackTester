@@ -86,7 +86,7 @@ class AUKF:
         self.R = self.symmetrize(self.R)
 
 class BatteryConstants:
-    def __init__(self, R_transient=0.005, tau=100, capacity=2.6, SOC=0.655, V_transient=0, R_series=0.005, K=1.0):
+    def __init__(self, R_transient=0.005, tau=100, capacity=2.6, SOC=0.655, V_transient=0, R_series=0.005, K=0.5):
         self.R_transient = R_transient
         self.tau = tau
         self.capacity = capacity
@@ -132,7 +132,7 @@ class BatteryModel(AUKF):
     def jac(self, control: np.ndarray) -> np.ndarray:
         capacity, R_series = self.x
         current = control.item()
-        sigma = (1 - (self.batteryConstants.K * R_series)) if current < 0 else (0.9 - (self.batteryConstants.K * R_series))
+        sigma = (1 - (self.batteryConstants.K * R_series)) if current < 0 else (1 - (self.batteryConstants.K * R_series))
         return np.array([(sigma * current * -1)/(3600 * capacity * capacity), (self.batteryConstants.K * current * -1)/(3600 * capacity)])
 
 
@@ -149,7 +149,7 @@ class SOCModel(AUKF):
     def F(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
         V_transient, SOC = x
         current = control.item()
-        sigma = (1 - (self.batteryConstants.K * self.batteryConstants.R_series)) if current < 0 else (0.9 - (self.batteryConstants.K * self.batteryConstants.R_series))
+        sigma = (1 - (self.batteryConstants.K * self.batteryConstants.R_series)) if current < 0 else (1 - (self.batteryConstants.K * self.batteryConstants.R_series))
         SOC += (sigma * current / (3600 * self.batteryConstants.capacity))
         V_transient *= np.exp(-1 / self.batteryConstants.tau)
         V_transient += self.batteryConstants.R_transient * (1 - np.exp(-1 / self.batteryConstants.tau)) * current
@@ -167,8 +167,8 @@ class SOCModel(AUKF):
 
 
 class DAUKF:
-    def __init__(self, x1, R1, Pxx1, x2, R2, Pxx2):
-        batteryConstants = BatteryConstants()
+    def __init__(self, x1, R1, Pxx1, x2, R2, Pxx2, batteryConstants=BatteryConstants()):
+        self.batteryConstants = batteryConstants
         self.AUKF1 = BatteryModel(x=x2, R=R2, Pxx=Pxx2, batteryConstants=batteryConstants)
         self.AUKF2 = SOCModel(x=x1, R=R1, Pxx=Pxx1, batteryConstants=batteryConstants)
 
@@ -181,14 +181,16 @@ class DAUKF:
 
 
 if __name__ == '__main__':
-    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/training/processed/battery_log_processed.csv")
+
     df['Rack Current[A]'] = df['Rack Current[A]'] / 60
+    df['SOC[%]'] = df['SOC[%]'] / 100
     current_series = df['Rack Current[A]'].values
     voltage_series = df['Avg. Cell V[V]'].values
-    SOC_series = df['Fuck3'].values
+    SOC_series = df['SOC[%]'].values
 
-    model = DAUKF(x1=np.array([0, 0.655]), R1=np.array([0.25]), Pxx1=np.array([[1e-4, 0], [0, 1e-8]]),
-                  x2=np.array([2.8, 0.05]), R2=np.array([1]), Pxx2=np.array([[1e-6, 0], [0, 1e-6]]))
+    model = DAUKF(x1=np.array([0, SOC_series[0]]), R1=np.array([0.25]), Pxx1=np.array([[1e-4, 0], [0, 1e-8]]),
+                  x2=np.array([2.8, 0.05]), R2=np.array([1]), Pxx2=np.array([[1e-10, 0], [0, 1e-10]]))
 
     results = []
 
@@ -205,10 +207,10 @@ if __name__ == '__main__':
     df_out.to_csv("dual_ukf_predictions.csv", index=False)
 
     df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/dual_ukf_predictions.csv")
-    df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/training/processed/battery_log_processed.csv")
     fig, axs = plt.subplots(2, figsize=(20, 10))
     axs[0].plot(df['SOC'], label="SOC")
-    axs[0].plot(df2['Fuck3'], label="SOC Real")
+    axs[0].plot((df2['SOC[%]']/100), label="SOC Real")
     axs[1].plot(df['Res'], label="Resistance")
     fig.legend()
     fig.savefig('Fuuuuuuck5.png', dpi=450)
