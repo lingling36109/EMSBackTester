@@ -1,7 +1,7 @@
 import os
 import sys
 import torch
-import SOH.UKF
+import SOH.DAUKF
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
@@ -184,36 +184,16 @@ def save_histograms(df, output_dir="histograms"):
             plt.savefig(os.path.join(output_dir, filename))
             plt.close()
 
+
 if __name__ == "__main__":
-    # df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
-    # plt.plot(20, 30)
-    # plt.plot(df2['Rack Current[A]'], label="Current", color="red")
-    # plt.plot(df2['Fuck'], label="Current smoothed 1", color="blue")
-    # plt.plot(df2['Fuck2'], label="Current smoothed 2", color="green")
-    # plt.legend()
-    # plt.savefig('Fuuuuuuck4.png', dpi=450)
-    # # fig.savefig('Fuuuuuuck5.png', dpi=450)
-    # plt.show()
-    # === Define the problem ===
+    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/dual_ukf_predictions.csv")
+    df2 = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/data/battery_log_processed.csv")
+    # plt.plot(df['SOC'], label="SOC")
+    # plt.plot(df2['Fuck3'], label="SOC Real")
+    # plt.plot(df['V_transient'], label="V transient")
 
-    bounds = FloatVar(
-        lb=[1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12, 1e-12],
-        ub=[2, 10, 1, 2, 10, 1, 100, 100, 100, 100, 100, 100, 100, 100]
-    )
-
-    problem = {
-        "obj_func": SOH.UKF.objective_function,
-        "bounds": bounds,
-        "minmax": "min",
-    }
-
-    optimizer = ES.CMA_ES(
-        epoch=2500,
-        pop_size=100,
-    )
-
-    import logging
-    optimizer.logging = logging.getLogger("mealpy")
-
-    optimizer.solve(problem, mode="process", n_workers=8)
-    print("Best (multiprocessed):", optimizer.g_best.solution, optimizer.g_best.target.fitness)
+    plt.figure(figsize=(20, 10))
+    plt.plot(df['Res'], label="Resistance")
+    plt.legend()
+    plt.savefig('Fuuuuuuck5.png', dpi=450)
+    plt.show()
