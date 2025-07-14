@@ -6,3 +6,4 @@ tqdm~=4.66.5
 torch~=2.7.1
 matplotlib~=3.9.2
 seaborn~=0.13.2
+pybamm

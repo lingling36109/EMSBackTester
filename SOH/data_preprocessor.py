@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 
 def read_csv_to_dict(path):
@@ -262,11 +264,15 @@ def datacleaner(in_directory_name, out_directory_name):
 
 
 if __name__ == "__main__":
-    for dir_path, dir_names, _ in os.walk("data/training/"):
-        for dir_name in dir_names:
-            print(f"Current directory: {dir_name}")
-            if dir_name == "processed":
-                continue
-            datacleaner(dir_path + dir_name,
-                        "data/training/processed/")
-        break
+    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/simulation_output.csv")
+    df_out = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/dual_ukf_predictions.csv")
+    fig, axs = plt.subplots(2, figsize=(90, 15))
+    # axs[0].plot(df['Time [s]'], df_out['SOC'], label="SOC")
+    # axs[0].plot(df['Time [s]'], (df['SOC[%]']), label="SOC Real")
+
+    axs[0].plot(df['Time [s]'], df_out['Res'], label="Resistance")
+    # axs[1].plot(df['Time [s]'], df_out['Capacity'], label="Capacity")
+    axs[1].plot(df['Time [s]'], df['Total capacity lost to side reactions [A.h]'], label="Capacity")
+    fig.legend()
+    fig.savefig('Fuuuuuuck.png', dpi=300)
+    fig.show()
