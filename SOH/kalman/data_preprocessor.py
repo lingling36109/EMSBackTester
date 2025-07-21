@@ -264,7 +264,7 @@ def datacleaner(in_directory_name, out_directory_name):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/simulation_output.csv")
+    df = pd.read_csv("/SOH/simulation_output.csv")
     df_out = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/dual_ukf_predictions.csv")
     fig, axs = plt.subplots(2, figsize=(90, 15))
     # axs[0].plot(df['Time [s]'], df_out['SOC'], label="SOC")

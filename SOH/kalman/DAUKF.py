@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 
 
 class UKF:
-    def __init__(self, x, R, Q, Pxx, N=2, window_size=5, alpha=1, beta=1, kappa=0):
+    def __init__(self, x, R, Q, Pxx, N=2, window_size=5, alpha=1, beta=1, kappa:float = 0):
         self.N = N
         self.x = x
         self.Pxx = Pxx
@@ -73,7 +73,7 @@ class UKF:
 
 
 class BatteryConstants:
-    def __init__(self, R_transient=0.005, tau=100, capacity=2.8, SOC=0.655, V_transient=0, R_series=0.05, K=1.0, sigma1=1, sigma2=0.9):
+    def __init__(self, R_transient=0.005, tau=100, capacity=2.8, SOC=0.655, V_transient=0, R_series=0.05, K=1.0, sigma1=1, sigma2=0.85):
         self.R_transient = R_transient
         self.tau = tau
         self.capacity = capacity
@@ -98,18 +98,8 @@ class BatteryConstants:
         self.V_transient = arr[0].item()
         self.SOC = arr[1].item()
 
-
-class BatteryV1(BatteryConstants):
-    def OCV(self, SOC):
-        return 3.81
-
-    def CE(self, current, R_series):
-        return (self.sigma1 - (self.K * R_series)) if current < 0 else (
-                    self.sigma2 - (self.K * R_series))
-
-
 class BatteryV2(BatteryConstants):
-    def __init__(self, R_transient=0.005, tau=100, capacity=4.0, SOC=1.0, V_transient=0, R_series=0.05, K=1.0, sigma1=1.0, sigma2=1.0):
+    def __init__(self, R_transient=0.005, tau=100, capacity=3.3, SOC=1.0, V_transient=0, R_series=0.05, K=1.0, sigma1=1.0, sigma2=1.0):
         super().__init__(R_transient=R_transient, tau=tau, capacity=capacity, SOC=SOC, V_transient=V_transient, R_series=R_series, K=K, sigma1=sigma1, sigma2=sigma2)
 
     def OCV(self, SOC):
@@ -143,32 +133,6 @@ class BatteryModel(UKF):
         return np.array([V_terminal])
 
 
-class SOCModel(UKF):
-    def __init__(self, x: np.ndarray, R: np.ndarray, Q:np.ndarray, Pxx: np.ndarray, batteryConstants: BatteryConstants, window_size=25, alpha=1, beta=1, kappa=0.5):
-        super().__init__(x=x, R=R, Pxx=Pxx, Q=Q, window_size=window_size, alpha=alpha, beta=beta, kappa=kappa)
-        self.batteryConstants = batteryConstants
-
-    def correct(self, control, sigma_points, y_actual):
-        x = super().correct(control=control, sigma_points=sigma_points, y_actual=y_actual)
-        self.batteryConstants.update_states(x)
-        return x
-
-    def F(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
-        V_transient, SOC = x
-        current, time = control
-        sigma = self.batteryConstants.CE(current, self.batteryConstants.R_series)
-        SOC += (sigma * current / (3600 * self.batteryConstants.capacity))
-        V_transient *= np.exp(-time / self.batteryConstants.tau)
-        V_transient += self.batteryConstants.R_transient * (1 - np.exp(-time / self.batteryConstants.tau)) * current
-        return np.array([V_transient, min(max(SOC.item(), 0), 1)])
-
-    def H(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
-        V_transient, SOC = x
-        current, time = control
-        V_terminal = self.batteryConstants.OCV(SOC) + current * self.batteryConstants.R_series + V_transient
-        return np.array([V_terminal])
-
-
 class DUKF:
     def __init__(self, x1, R1, Q1, Pxx1, x2, R2, Q2, Pxx2, batteryConstants=BatteryConstants()):
         self.batteryConstants = batteryConstants
@@ -199,50 +163,104 @@ class CapacityUKF(UKF):
         return np.array([d])
 
 
+class bigUKF(UKF):
+    def __init__(self, x: np.ndarray, R: np.ndarray, Q: np.ndarray, Pxx: np.ndarray, batteryConstants: BatteryConstants, window_size=25, alpha=1, beta=1, kappa=0.5):
+        super().__init__(N=3, x=x, R=R, Pxx=Pxx, Q=Q, window_size=window_size, alpha=alpha, beta=beta, kappa=kappa)
+        self.batteryConstants = batteryConstants
+
+    def F(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
+        V_transient, SOC, capacity = x
+        current, time = control
+        sigma = self.batteryConstants.CE(current, self.batteryConstants.R_series)
+        SOC += (sigma * current / (3600 * capacity))
+        V_transient *= np.exp(-time / self.batteryConstants.tau)
+        V_transient += self.batteryConstants.R_transient * (1 - np.exp(-time / self.batteryConstants.tau)) * current
+        return np.array([V_transient, min(max(SOC.item(), 0), 1), capacity])
+
+    def H(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
+        V_transient, SOC, capacity = x
+        current, time = control
+        V_terminal = self.batteryConstants.OCV(SOC) + current * self.batteryConstants.R_series + V_transient
+        return np.array([V_terminal])
+
+
+class SOCModel(UKF):
+    def __init__(self, x: np.ndarray, R: np.ndarray, Q:np.ndarray, Pxx: np.ndarray, batteryConstants: BatteryConstants, window_size=25, alpha=1, beta=1, kappa=(1/2)):
+        super().__init__(x=x, R=R, Pxx=Pxx, Q=Q, window_size=window_size, alpha=alpha, beta=beta, kappa=kappa)
+        self.batteryConstants = batteryConstants
+
+    def correct(self, control, sigma_points, y_actual):
+        x = super().correct(control=control, sigma_points=sigma_points, y_actual=y_actual)
+        self.batteryConstants.update_states(x)
+        return x
+
+    def predict(self, control):
+        x = super().predict(control=control)
+        return x
+
+    def F(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
+        V_transient, SOC = x
+        current, time = control
+        sigma = self.batteryConstants.CE(current, 0)
+        SOC += (sigma * current / (3600 * self.batteryConstants.capacity))
+        V_transient *= np.exp(-time / self.batteryConstants.tau)
+        V_transient += self.batteryConstants.R_transient * (1 - np.exp(-time / self.batteryConstants.tau)) * current
+        return np.array([V_transient, min(max(SOC, 0), 1)])
+
+    def H(self, x: np.ndarray, control: np.ndarray) -> np.ndarray:
+        V_transient, SOC = x
+        V_terminal = self.batteryConstants.OCV(SOC) + V_transient
+        return np.array([V_terminal])
+
+
+class BatteryV1(BatteryConstants):
+    def OCV(self, SOC):
+        return 3.81
+
+    def CE(self, current, R_series):
+        return (self.sigma1 - (self.K * R_series)) if current < 0 else (
+                    self.sigma2 - (self.K * R_series))
+
+
+class WLS:
+    def __init__(self, SOC: SOCModel):
+        self.SOC = SOC
+
+    def update(self, current, voltage):
+        points = self.SOC.predict(control=np.array([current, 1]))
+
+        result = self.SOC.correct(control=np.array([current, 1]), sigma_points=points, y_actual=np.array([voltage]))
+        return result
+
 if __name__ == '__main__':
-    df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/simulation_output3.csv")
+    df = pd.read_csv("~/Desktop/EMSBackTester/SOH/data/training/processed/battery_log_processed.csv")
 
-    # df['Rack Current[A]'] = df['Rack Current[A]'] / 60
-    # df['SOC[%]'] = 1.0 - (df['Discharge capacity [A.h]'] /(5.0 - df['Total capacity lost to side reactions [A.h]']))
-    df['SOC[%]'] = 1.0 - (df['Discharge capacity [A.h]'] / 5.0)
-    df['Delta t [s]'] = (df['Time [s]'].shift(-1) - df['Time [s]']).fillna(0)
-    current_series = df['Current [A]'].values
-    voltage_series = df['Terminal voltage [V]'].values
+    df['Rack Current[A]'] = df['Rack Current[A]'] / 60
+    df['SOC[%]'] = df['SOC[%]'] / 100
+    current_series = df['Rack Current[A]'].values
+    voltage_series = df['Avg. Cell V[V]'].values
     SOC_series = df['SOC[%]'].values
-    dt_series = df['Delta t [s]'].values
-
-    # model = DUKF(x1=np.array([0, SOC_series[0]]), R1=np.array([1e-2]), Q1=np.array([[1e-5, 0], [0, 1e-10]]), Pxx1=np.array([[1e-1, 0], [0, 1e-3]]),
-    #               x2=np.array([5.0]), R2=np.array([1e-8]), Q2=np.array([1e-4]), Pxx2=np.array([1e-4]), batteryConstants=BatteryV2())
-
-    model = CapacityUKF(x=np.array([5.0]), R=np.array([1e8]), Q=np.array([1e2]), Pxx=np.array([1e-8]), batteryConstants=BatteryV2())
 
     results = []
 
-    for k in range(1, len(current_series)):
-        current = current_series[k]
-        # V_measured = voltage_series[k]
-        dt = dt_series[k]
-        SOC_series1 = SOC_series[k]
-        SOC_series2 = SOC_series[k-1]
+    model = SOCModel(x=np.array([0, SOC_series[0]]), R=np.array([1e-2]), Q=np.array([[1e-4, 0], [0, 1e-8]]), Pxx=np.array([[1e-4, 0], [0, 1e-8]]), batteryConstants=BatteryV1(), window_size=25, alpha=1, beta=1, kappa=0.5)
 
-        result = model.predict(control=None)
-        result = model.correct(control=np.array([current, dt, SOC_series2, SOC_series1]), sigma_points=result, y_actual=np.array([0]))
+    for k in range(len(current_series)):
+        current = current_series[k]
+        voltage = voltage_series[k]
+
+        points = model.predict(control=np.array([current, 1]))
+        result = model.correct(control=np.array([current, 1]), sigma_points=points, y_actual=np.array([voltage]))
 
         results.append(result)
 
-    results.append([4.98,0,0])
 
-    df_out = pd.DataFrame(results, columns=["Capacity", "V_transient", "SOC"])
+    df_out = pd.DataFrame(results, columns=["V_transient", "SOC"])
     df_out.to_csv("dual_ukf_predictions.csv", index=False)
     fig, axs = plt.subplots(1, figsize=(90, 15))
-    # axs[0].plot(df['Time [s]'], df_out['SOC'], label="SOC")
-    # axs[0].plot(df['Time [s]'], (df['SOC[%]']), label="SOC Real")
-    #
-    # print(mean_squared_error(df_out['SOC'], df['SOC[%]']))
-
-    # axs[1].plot(df['Time [s]'], df_out['Res'], label="Resistance")
-    axs.plot(df['Time [s]'], df_out['Capacity'], label="Capacity")
-    axs.plot(df['Time [s]'], 5.0 - df['Total capacity lost to side reactions [A.h]'], label="Capacity")
+    axs.plot(df_out['SOC'], label="SOC")
+    axs.plot(df['SOC[%]'], label="SOC Real")
+    print(mean_squared_error(df_out['SOC'], df['SOC[%]']))
     fig.legend()
     fig.savefig('Fuuuuuuck.png', dpi=300)
     fig.show()

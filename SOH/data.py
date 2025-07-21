@@ -19,7 +19,7 @@ if __name__ == '__main__':
             "SEI": "solvent-diffusion limited",
             "SEI porosity change": "true",
             "lithium plating": "partially reversible",
-            "lithium plating porosity change": "true",  # alias for "SEI porosity change"
+            "lithium plating porosity change": "true",
             "particle mechanics": ("swelling and cracking", "swelling only"),
             "SEI on cracks": "true",
             "loss of active material": "stress-driven",
