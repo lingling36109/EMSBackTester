@@ -56,13 +56,6 @@ def main():
     soc = df['SOC[%]'] / 100
     current = df['Rack Current[A]'] / -240
 
-    # df = pd.read_csv("/Users/andrewjosephkim/Desktop/EMSBackTester/SOH/simulation_output.csv")
-    # df['SOC [%]'] = 100 * (
-    #             1.0 - (df['Discharge capacity [A.h]'] / (5.0 - df['Total capacity lost to side reactions [A.h]'])))
-    # time = df['Time [s]']
-    # soc = df['SOC [%]']
-    # current = df['Current [A]']
-
     x_vals, y_vals = [], []
     sigma_x_vals, sigma_y_vals = [], []
     time_series, Q_estimates, Q_sigma_bounds = [], [], []
@@ -73,13 +66,11 @@ def main():
         if current[i] >= 0 or abs(delta_soc) < 1e-4:
             continue
 
-        # Outlier rejection
         x_i = np.clip(delta_soc, -CLIP_SOC_DELTA, CLIP_SOC_DELTA)
         y_i = np.clip(-current[i] * dt, -CLIP_AH, CLIP_AH)
 
         sigma_xi, sigma_yi = compute_sigma(x_i, y_i, dt)
 
-        # Apply fading memory
         x_vals = [FORGETTING_FACTOR * xj for xj in x_vals] + [x_i]
         y_vals = [FORGETTING_FACTOR * yj for yj in y_vals] + [y_i]
         sigma_x_vals = [FORGETTING_FACTOR * sj for sj in sigma_x_vals] + [sigma_xi]
@@ -114,11 +105,9 @@ def main():
     results['Smoothed'] = results['Estimated Capacity [Ah]'].rolling('3600s').mean()
     results.to_csv("approx_wtls_results_with_bounds.csv")
 
-    # === Plot Results ===
     plt.figure(figsize=(20, 6))
     time_sec = results.index.total_seconds()
 
-    # Confidence bounds first (underlay)
     plt.fill_between(
         time_sec,
         results['Lower Bound'],
